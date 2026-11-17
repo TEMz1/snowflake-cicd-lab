@@ -72,7 +72,7 @@ jobs:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: CICD_GITHUB_BOT
           SNOWFLAKE_ROLE: CICD_DEPLOY_ROLE
-          SNOWFLAKE_WAREHOUSE: YOUR_LAB_WAREHOUSE
+          SNOWFLAKE_WAREHOUSE: LAB_WH
         run: snow connection test -x
 
       - name: Deploy SQL view
@@ -80,7 +80,7 @@ jobs:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: CICD_GITHUB_BOT
           SNOWFLAKE_ROLE: CICD_DEPLOY_ROLE
-          SNOWFLAKE_WAREHOUSE: YOUR_LAB_WAREHOUSE
+          SNOWFLAKE_WAREHOUSE: LAB_WH
         run: |
           snow sql \
             -f sql/02_customer_summary.sql \
@@ -91,7 +91,7 @@ jobs:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: CICD_GITHUB_BOT
           SNOWFLAKE_ROLE: CICD_DEPLOY_ROLE
-          SNOWFLAKE_WAREHOUSE: YOUR_LAB_WAREHOUSE
+          SNOWFLAKE_WAREHOUSE: LAB_WH
         run: |
           snow sql \
             -f sql/03_test.sql \
