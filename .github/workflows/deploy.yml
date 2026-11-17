@@ -1,0 +1,112 @@
+
+name: Snowflake CI/CD Lab
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Validate SQL
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check required SQL files
+        run: |
+          test -s sql/02_customer_summary.sql
+          test -s sql/03_test.sql
+
+      - name: Basic SQL validation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          sql = Path(
+              "sql/02_customer_summary.sql"
+          ).read_text().upper()
+
+          assert "CREATE OR REPLACE VIEW" in sql
+          assert "GROUP BY" in sql
+          assert "RAW_ORDERS" in sql
+
+          print("Basic SQL checks passed")
+          PY
+
+  cd:
+    name: Deploy to Snowflake
+    needs: ci
+
+    if: github.event_name == 'push'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Snowflake CLI
+        uses: snowflakedb/snowflake-actions@v3
+        with:
+          use-oidc: true
+          cli-version: "3.16"
+
+      - name: Test Snowflake connection
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: CICD_GITHUB_BOT
+          SNOWFLAKE_ROLE: CICD_DEPLOY_ROLE
+          SNOWFLAKE_WAREHOUSE: YOUR_LAB_WAREHOUSE
+        run: snow connection test -x
+
+      - name: Deploy SQL view
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: CICD_GITHUB_BOT
+          SNOWFLAKE_ROLE: CICD_DEPLOY_ROLE
+          SNOWFLAKE_WAREHOUSE: YOUR_LAB_WAREHOUSE
+        run: |
+          snow sql \
+            -f sql/02_customer_summary.sql \
+            -x
+
+      - name: Run smoke test
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: CICD_GITHUB_BOT
+          SNOWFLAKE_ROLE: CICD_DEPLOY_ROLE
+          SNOWFLAKE_WAREHOUSE: YOUR_LAB_WAREHOUSE
+        run: |
+          snow sql \
+            -f sql/03_test.sql \
+            -x \
+            --format JSON > test_result.json
+
+          python - <<'PY'
+          import json
+
+          with open("test_result.json") as f:
+              results = json.load(f)
+
+          assert results[0]["TEST_RESULT"] == "PASS", (
+              f"Smoke test failed: {results}"
+          )
+
+          print("Snowflake smoke test PASSED")
+          PY
